@@ -62,4 +62,3 @@ video_url = 'https://cdn-st.rutubelist.ru/media/b0/e9/ef285e0241139fc611318ed330
 output_folder = 'test_thumbnails'
 
 create_thumbnails_for_video_message(video_url, output_folder)
-
