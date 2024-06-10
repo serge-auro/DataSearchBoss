@@ -106,3 +106,5 @@ webencodings==0.5.1
 websocket-client==1.7.0
 widgetsnbextension==4.0.10
 yarl==1.9.4
+pymongo==4.3.3
+numpy==1.23.5
