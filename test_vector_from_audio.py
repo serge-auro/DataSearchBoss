@@ -9,6 +9,8 @@ from transformers import Wav2Vec2Processor, Wav2Vec2Model
 from moviepy.editor import VideoFileClip
 from scipy.io import wavfile
 import numpy as np
+import uvicorn
+import asyncio
 from scipy.signal import resample
 
 # Загрузка модели для аудио
@@ -28,7 +30,6 @@ async def encode_audio(request: AudioEncodeRequest):
     video_url = request.video_url
     if not video_url:
         raise HTTPException(status_code=400, detail="Please provide a video URL.")
-
     try:
         # Скачивание видеофайла
         response = requests.get(video_url)
@@ -65,15 +66,14 @@ async def encode_audio(request: AudioEncodeRequest):
             data = resample(data, num_samples)
 
         # Создание тензора
-        audio_tensor = torch.tensor(data)  # .unsqueeze(0)  # Добавление batch dimension - ломает программу
+        audio_tensor = torch.tensor(data)
 
         # Преобразование аудио в вектора
-        inputs = processor(audio_tensor, sampling_rate=samplerate, return_tensors="pt")
+        inputs = processor(audio_tensor, sampling_rate=target_samplerate, return_tensors="pt")
         input_values = inputs.input_values  # Получаем тензор входных значений
         with torch.no_grad():
             features = audio_model(input_values).last_hidden_state
         features /= features.norm(dim=-1, keepdim=True)
-
         return {"features": features.squeeze(0).tolist()}
 
     finally:
@@ -84,7 +84,29 @@ async def encode_audio(request: AudioEncodeRequest):
             os.remove(audio_path)
 
 
-# TODO:
-# 1. Запустив такой код на сервере с поддержкой GPU, можно получать векторы по аудиодорожке из видеофайлов.
-# 2. Сейчас такое приложение принимает URL-ссылки на видеофайлы и скачивает их самостоятельно.
-#    Загружает временные файлы на диск и удаляет их в конце работы.
+async def run_server():
+    config = uvicorn.Config(app, host="0.0.0.0", port=8000, log_level="info")
+    server = uvicorn.Server(config)
+    await server.serve()
+
+
+async def test_encode_audio():
+    test_url = "https://cdn-st.rutubelist.ru/media/b0/e9/ef285e0241139fc611318ed33071/fhd.mp4"
+    test_request = AudioEncodeRequest(video_url=test_url)
+    response = await encode_audio(test_request)
+    print(response)
+
+
+if __name__ == "__main__":
+    loop = asyncio.get_event_loop()
+    # Запуск сервера в отдельном потоке
+    server_task = loop.create_task(run_server())
+    # Выполнение теста
+    loop.run_until_complete(test_encode_audio())
+    # Завершение сервера после выполнения теста
+    server_task.cancel()
+    try:
+        loop.run_until_complete(server_task)
+    except asyncio.CancelledError:
+        pass
+    loop.close()
