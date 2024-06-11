@@ -4,7 +4,7 @@ import requests
 import logging
 
 def process_only_video_data(video_id):
-    url = "http://127.0.0.1:8000/encode"
+    url = "http://176.109.106.184:8000//encode"
     json_file_path = 'video_description/all_videos.json'
     frames_dir = "frames"
 
