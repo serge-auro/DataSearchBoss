@@ -76,6 +76,9 @@ async def encode_audio(request: AudioEncodeRequest):
         features /= features.norm(dim=-1, keepdim=True)
         return {"features": features.squeeze(0).tolist()}
 
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
     finally:
         # Удаление временных файлов
         if os.path.exists(video_path):
