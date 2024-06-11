@@ -20,19 +20,35 @@ def create_thumbnails_for_video_message(
 ) -> tuple[list[VideoFrame], float, int]:
     frames: list[VideoFrame] = []
     video_data = BytesIO(requests.get(video_url).content)
+    print(video_data)
 
     with tempfile.NamedTemporaryFile(delete=False, prefix=f"{video_id}_", suffix='.mp4') as tmp_file:
         tmp_file.write(video_data.getvalue())
         video_path = tmp_file.name
+        print(video_path)
 
     scenes = detect(video_path, ContentDetector(threshold=frame_change_threshold))
+    print(scenes)
+    print(len(scenes))
     duration = get_video_duration(video_path)
+    print(duration)
 
     if len(scenes) > num_of_thumbnails:
         start_scenes, middle_scenes, end_scenes = split_scenes(scenes, duration)
         selected_scenes = choose_scenes(start_scenes, end_scenes, middle_scenes, num_of_thumbnails)
     else:
         selected_scenes = scenes[:num_of_thumbnails]  # Обрезаем до максимально доступного количества сцен
+
+    if len(selected_scenes) < num_of_thumbnails:
+        video_fps = get_video_fps(video_path)
+        if not any(scene[0].get_seconds() == 0 for scene in selected_scenes if isinstance(scene[0], FrameTimecode)):
+            selected_scenes.insert(0, (FrameTimecode(timecode='00:00:00', fps=video_fps),
+                                       FrameTimecode(timecode='00:00:00', fps=video_fps)))  # Добавляем первый кадр
+        if not any(
+                scene[0].get_seconds() == duration for scene in selected_scenes if isinstance(scene[0], FrameTimecode)):
+            # Используем временную метку последней полной секунды
+            last_timecode = FrameTimecode(timecode=f'{int(duration)}', fps=video_fps)
+            selected_scenes.append((last_timecode, last_timecode))  # Добавляем последний кадр
 
     os.makedirs(output_folder, exist_ok=True)
     saved_frames_count = 0  # Подсчет успешно сохраненных кадров
@@ -51,9 +67,14 @@ def save_frame(video_path: str, timecode: float, output_path: str, duration: flo
     # Уменьшаем время на 100 миллисекунд, чтобы избежать черного кадра на конце
     safe_duration = duration - 0.1
     if timecode < safe_duration:
-        subprocess.call(['ffmpeg', '-y', '-i', video_path, '-ss', str(timecode), '-vframes', '1', output_path])
+        subprocess.call([
+            'ffmpeg', '-y', '-i', video_path, '-ss', str(timecode),
+            '-vframes', '1', '-update', '1', output_path
+        ])
         return True
     return False
+
+
 
 def get_video_duration(video_path: str) -> float:
     result = subprocess.run(
@@ -92,7 +113,7 @@ def choose_scenes(start_scenes, end_scenes, middle_scenes, num_of_thumbnails):
 
 
 # Пример вызова функции
-video_id = '1205abbc4a27bf867187f1d621c9'
-video_url = 'https://cdn-st.rutubelist.ru/media/87/81/1205abbc4a27bf867187f1d621c9/fhd.mp4'
+video_id = '1d1bde4f4923a79f5f80860decbb'
+video_url = 'https://cdn-st.rutubelist.ru/media/99/91/1d1bde4f4923a79f5f80860decbb/fhd.mp4'
 output_folder = 'frames2'
 print(create_thumbnails_for_video_message(video_id, video_url, output_folder))
