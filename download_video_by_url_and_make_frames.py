@@ -19,7 +19,7 @@ def create_thumbnails_for_video_message(
         video_url: str,
         output_folder: str,
         frame_change_threshold: float = 7.5,
-        num_of_thumbnails: int = 10
+        num_of_thumbnails: int = 15
 ) -> tuple[list[VideoFrame], str]:
     frames: list[VideoFrame] = []
     video_data = BytesIO(requests.get(video_url).content)
