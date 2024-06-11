@@ -10,9 +10,16 @@ from moviepy.editor import VideoFileClip
 from scipy.io import wavfile
 import numpy as np
 from scipy.signal import resample
+import time
+from sklearn.decomposition import PCA
+import logging
+
+# Настройка логгирования
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 # Загрузка модели для аудио
-audio_model_id = "facebook/wav2vec2-large-960h"
+audio_model_id = "jonatasgrosman/wav2vec2-large-xlsr-53-russian"
 processor = Wav2Vec2Processor.from_pretrained(audio_model_id)
 audio_model = Wav2Vec2Model.from_pretrained(audio_model_id)
 
@@ -29,20 +36,29 @@ async def encode_audio(request: AudioEncodeRequest):
     if not video_url:
         raise HTTPException(status_code=400, detail="Please provide a video URL.")
 
+    video_path = "temp_video.mp4"
+    audio_path = "temp_audio.wav"
+
     try:
         # Скачивание видеофайла
         response = requests.get(video_url)
         if response.status_code != 200:
             raise HTTPException(status_code=400, detail=f"Unable to fetch video from {video_url}")
         video_data = BytesIO(response.content)
-        video_path = "temp_video.mp4"
         with open(video_path, "wb") as f:
             f.write(video_data.getbuffer())
 
-        # Извлечение аудиодорожки из видеофайла
+        start_time = time.time()
+
+        # Извлечение видеофайла
         video = VideoFileClip(video_path)
+
+        # Вывод длины видео в секундах
+        video_duration = video.duration
+        logger.info(f"Video duration: {video_duration} seconds")
+
+        # Извлечение аудиодорожки из видеофайла
         audio = video.audio
-        audio_path = "temp_audio.wav"
         audio.write_audiofile(audio_path)
 
         # Явное закрытие видео и аудио объектов
@@ -52,8 +68,8 @@ async def encode_audio(request: AudioEncodeRequest):
         # Преобразование аудиофайла в массив numpy
         samplerate, data = wavfile.read(audio_path)
         if data.ndim > 1:
-            # Если аудиодорожка имеет более одного канала, взять только первый канал
-            data = data[:, 0]
+            # Если аудиодорожка имеет более одного канала, усреднить каналы
+            data = np.mean(data, axis=1)
 
         # Нормализация данных
         data = data.astype(np.float32) / 32768.0
@@ -68,13 +84,28 @@ async def encode_audio(request: AudioEncodeRequest):
         audio_tensor = torch.tensor(data)  # .unsqueeze(0)  # Добавление batch dimension - ломает программу
 
         # Преобразование аудио в вектора
-        inputs = processor(audio_tensor, sampling_rate=samplerate, return_tensors="pt")
+        inputs = processor(audio_tensor, sampling_rate=target_samplerate, return_tensors="pt")
         input_values = inputs.input_values  # Получаем тензор входных значений
         with torch.no_grad():
             features = audio_model(input_values).last_hidden_state
         features /= features.norm(dim=-1, keepdim=True)
 
-        return {"features": features.squeeze(0).tolist()}
+        # Преобразование тензора в numpy массив
+        features_np = features.squeeze(0).numpy()
+
+        # Применение PCA для усреднения векторов без потери важной информации
+        pca = PCA(n_components=1024)
+        aggregated_vector = pca.fit_transform(features_np.T).T.mean(axis=1)
+
+        end_time = time.time()
+        total_time = end_time - start_time
+        logger.info(f'Processing time: {total_time}')
+
+        return {"features": aggregated_vector.tolist()}
+
+    except Exception as e:
+        logger.error(f"Error processing video: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
     finally:
         # Удаление временных файлов
@@ -82,6 +113,11 @@ async def encode_audio(request: AudioEncodeRequest):
             os.remove(video_path)
         if os.path.exists(audio_path):
             os.remove(audio_path)
+
+# Запуск приложения через Uvicorn
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run(app, host="0.0.0.0", port=8000)
 
 
 # TODO:

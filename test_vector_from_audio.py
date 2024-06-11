@@ -12,9 +12,11 @@ import numpy as np
 import uvicorn
 import asyncio
 from scipy.signal import resample
+import time
+from sklearn.decomposition import PCA
 
 # Загрузка модели для аудио
-audio_model_id = "facebook/wav2vec2-large-960h"
+audio_model_id = "jonatasgrosman/wav2vec2-large-xlsr-53-russian"
 processor = Wav2Vec2Processor.from_pretrained(audio_model_id)
 audio_model = Wav2Vec2Model.from_pretrained(audio_model_id)
 
@@ -40,8 +42,16 @@ async def encode_audio(request: AudioEncodeRequest):
         with open(video_path, "wb") as f:
             f.write(video_data.getbuffer())
 
-        # Извлечение аудиодорожки из видеофайла
+        start_time = time.time()
+
+        # Извлечение видеофайла
         video = VideoFileClip(video_path)
+
+        # Вывод длины видео в секундах
+        video_duration = video.duration
+        print(f"Video duration: {video_duration} seconds")
+
+        # Извлечение аудиодорожки из видеофайла
         audio = video.audio
         audio_path = "temp_audio.wav"
         audio.write_audiofile(audio_path)
@@ -54,7 +64,9 @@ async def encode_audio(request: AudioEncodeRequest):
         samplerate, data = wavfile.read(audio_path)
         if data.ndim > 1:
             # Если аудиодорожка имеет более одного канала, взять только первый канал
-            data = data[:, 0]
+            # data = data[:, 0]
+            # Если аудиодорожка имеет более одного канала, усреднить каналы
+            data = np.mean(data, axis=1)
 
         # Нормализация данных
         data = data.astype(np.float32) / 32768.0
@@ -74,7 +86,20 @@ async def encode_audio(request: AudioEncodeRequest):
         with torch.no_grad():
             features = audio_model(input_values).last_hidden_state
         features /= features.norm(dim=-1, keepdim=True)
-        return {"features": features.squeeze(0).tolist()}
+
+        # Преобразование тензора в numpy массив
+        features_np = features.squeeze(0).numpy()
+
+        # Применение PCA для усреднения векторов без потери важной информации
+        pca = PCA(n_components=1024)
+        aggregated_vector = pca.fit_transform(features_np.T).T.mean(axis=1)
+
+        end_time = time.time()
+        total_time = end_time - start_time
+        print(f'Processing time: {total_time}')
+
+        # return {"features": features.squeeze(0).tolist()}
+        return {"features": aggregated_vector.tolist()}
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -94,10 +119,16 @@ async def run_server():
 
 
 async def test_encode_audio():
-    test_url = "https://cdn-st.rutubelist.ru/media/b0/e9/ef285e0241139fc611318ed33071/fhd.mp4"
+    # test_url = 'https://cdn-st.rutubelist.ru/media/c7/ba/3a3dad294ee9befea47fb56ed0d5/fhd.mp4'
+    # test_url = 'https://cdn-st.rutubelist.ru/media/39/6c/b31bc6864bef9d8a96814f1822ca/fhd.mp4'
+    test_url = 'https://cdn-st.rutubelist.ru/media/0f/48/8a1ff7324073947a31e80f71d001/fhd.mp4'
+    # test_url = "https://cdn-st.rutubelist.ru/media/b0/e9/ef285e0241139fc611318ed33071/fhd.mp4"
     test_request = AudioEncodeRequest(video_url=test_url)
     response = await encode_audio(test_request)
-    print(response)
+    features = response["features"]
+    print(f"Размерность списка векторов: {len(features)}")
+    # print(f"Размерность списка векторов: {len(features)} x {len(features[0]) if features else 0}")
+    # print(response)
 
 
 if __name__ == "__main__":
