@@ -90,9 +90,19 @@ async def encode_audio(request: AudioEncodeRequest):
         # Преобразование тензора в numpy массив
         features_np = features.squeeze(0).numpy()
 
+        # Padding или усечение данных до необходимого размера
+        if features_np.shape[0] < 1024:
+            padding = np.zeros((1024 - features_np.shape[0], features_np.shape[1]))
+            features_np = np.vstack((features_np, padding))
+        else:
+            features_np = features_np[:1024, :]
+
         # Применение PCA для усреднения векторов без потери важной информации
         pca = PCA(n_components=1024)
         aggregated_vector = pca.fit_transform(features_np.T).T.mean(axis=1)
+
+        # Преобразование вектора в нужный формат 1x1024
+        aggregated_vector = aggregated_vector.reshape(1, -1)
 
         end_time = time.time()
         total_time = end_time - start_time
@@ -121,13 +131,13 @@ async def run_server():
 async def test_encode_audio():
     # test_url = 'https://cdn-st.rutubelist.ru/media/c7/ba/3a3dad294ee9befea47fb56ed0d5/fhd.mp4'
     # test_url = 'https://cdn-st.rutubelist.ru/media/39/6c/b31bc6864bef9d8a96814f1822ca/fhd.mp4'
-    test_url = 'https://cdn-st.rutubelist.ru/media/0f/48/8a1ff7324073947a31e80f71d001/fhd.mp4'
-    # test_url = "https://cdn-st.rutubelist.ru/media/b0/e9/ef285e0241139fc611318ed33071/fhd.mp4"
+    # test_url = 'https://cdn-st.rutubelist.ru/media/0f/48/8a1ff7324073947a31e80f71d001/fhd.mp4'
+    test_url = "https://cdn-st.rutubelist.ru/media/b0/e9/ef285e0241139fc611318ed33071/fhd.mp4"
     test_request = AudioEncodeRequest(video_url=test_url)
     response = await encode_audio(test_request)
     features = response["features"]
-    print(f"Размерность списка векторов: {len(features)}")
-    # print(f"Размерность списка векторов: {len(features)} x {len(features[0]) if features else 0}")
+    # print(f"Размерность списка векторов: {features[0].shape}")
+    print(f"Размерность списка векторов: {len(features)} x {len(features[0]) if features else 0}")
     # print(response)
 
 
