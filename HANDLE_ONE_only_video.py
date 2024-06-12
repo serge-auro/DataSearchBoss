@@ -8,8 +8,8 @@ from upload_only_VIDEO_vector import process_only_video_data, delete_frames
 # Настройка логирования
 logging.basicConfig(filename='processing.log', level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
-vectors_file_paths = ['vectors_1.json', 'vectors_2.json']
-statistics_file_path = 'statistics.json'
+vectors_file_paths = ['vectors_5.json', 'vectors_6.json']
+statistics_file_path = 'statistics_video_56.json'
 
 def load_json(file_path):
     if not os.path.exists(file_path):
@@ -32,14 +32,14 @@ def save_json(data, file_path):
 
 
 def load_last_state():
-    vectors_1 = load_json(vectors_file_paths[0])
-    vectors_2 = load_json(vectors_file_paths[1])
+    vectors_5 = load_json(vectors_file_paths[0])
+    vectors_6 = load_json(vectors_file_paths[1])
     statistics = load_json(statistics_file_path)
-    return vectors_1, vectors_2, statistics
+    return vectors_5, vectors_6, statistics
 
 
 def main_handle_videos():
-    vectors_1, vectors_2, statistics = load_last_state()
+    vectors_5, vectors_6, statistics = load_last_state()
     json_file_path = 'video_description/all_videos.json'
 
     with open(json_file_path, 'r', encoding='utf-8') as file:
@@ -54,26 +54,26 @@ def main_handle_videos():
             logging.error(f"Error loading JSON file {json_file_path}: {str(e)}")
             return
 
-    video_ids = list(all_videos.keys())[:2000]
+    video_ids = list(all_videos.keys())[4000:6000]
 
     for i, video_id in enumerate(video_ids):
-        if video_id in vectors_1 or video_id in vectors_2:
+        if video_id in vectors_5 or video_id in vectors_6:
             continue  # Skip already processed videos
 
         start_time = time.time()
 
         output_folder = "frames"
-        frames, video_path = create_thumbnails_for_video_message(video_id, all_videos[video_id]['url'], output_folder)
+        frames, video_duration, frames_count = create_thumbnails_for_video_message(video_id, all_videos[video_id]['url'], output_folder)
 
         success, vector = process_only_video_data(video_id)
         if success and vector is not None:
-            if i < 1000:
-                vectors_1[video_id] = {
+            if i < 2000:
+                vectors_5[video_id] = {
                     "url": all_videos[video_id]['url'],
                     "vector": vector
                 }
             else:
-                vectors_2[video_id] = {
+                vectors_6[video_id] = {
                     "url": all_videos[video_id]['url'],
                     "vector": vector
                 }
@@ -89,25 +89,25 @@ def main_handle_videos():
         end_time = time.time()
         total_time = end_time - start_time
 
-        video_duration = get_video_duration(video_path)
-        os.unlink(video_path)
+
 
         statistics[video_id] = {
             "processing_time": total_time,
-            "video_duration": video_duration
+            "video_duration": video_duration,
+            "frames_count": frames_count
         }
 
         log_message = f"Total execution time for {video_id}: {total_time} seconds"
         print(log_message)
         logging.info(log_message)
 
-        log_message = f"Video duration for {video_id}: {video_duration} seconds"
+        log_message = f"Video duration for {video_id}: {video_duration} seconds, frames count: {frames_count}"
         print(log_message)
         logging.info(log_message)
 
         # Сохранение данных после обработки каждого видео
-        save_json(vectors_1, vectors_file_paths[0])
-        save_json(vectors_2, vectors_file_paths[1])
+        save_json(vectors_5, vectors_file_paths[0])
+        save_json(vectors_6, vectors_file_paths[1])
         save_json(statistics, statistics_file_path)
 
 
