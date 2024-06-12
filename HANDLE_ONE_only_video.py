@@ -54,7 +54,7 @@ def main_handle_videos():
             logging.error(f"Error loading JSON file {json_file_path}: {str(e)}")
             return
 
-    video_ids = list(all_videos.keys())[:2000]
+    video_ids = list(all_videos.keys())[4000:6000]
 
     for i, video_id in enumerate(video_ids):
         if video_id in vectors_5 or video_id in vectors_6:
