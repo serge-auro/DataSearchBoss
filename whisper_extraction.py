@@ -23,14 +23,15 @@ app = FastAPI()
 class AudioEncodeRequest(BaseModel):
     video_url: str
 
+video_path = "temp_video.mp4"
+audio_path = "temp_audio.wav"
 
 @app.post("/encode_audio")
 async def encode_audio(request: AudioEncodeRequest):
     video_url = request.video_url
     if not video_url:
         raise HTTPException(status_code=400, detail="Please provide a video URL.")
-    video_path = "temp_video.mp4"
-    audio_path = "temp_audio.wav"
+
     try:
         # Скачивание видеофайла
         response = requests.get(video_url)
@@ -56,27 +57,7 @@ async def encode_audio(request: AudioEncodeRequest):
         logging.error(f"Error processing video: {e}")
         raise HTTPException(status_code=500, detail="Error processing video")
 
-    finally:
-        # Удаление временных файлов
-        if os.path.exists(video_path):
-            os.remove(video_path)
-
     return {"video_duration": video_duration, "audio_path": audio_path}
-
-
-# Функция для извлечения аудио
-# def extract_audio(video_path):
-#     audio_path = video_path.replace('.mp4', '.ogg')
-#     try:
-#         video = VideoFileClip(video_path)
-#         audio = video.audio
-#         audio.write_audiofile(audio_path, codec='libvorbis')
-#         audio.close()
-#         video.close()
-#     except Exception as e:
-#         logging.error(f"Error while extracting audio: {e}")
-#         return None
-#     return audio_path
 
 
 # Функция для преобразования аудио в массив NumPy
@@ -96,31 +77,6 @@ def audio_to_numpy(audio_path):
     end_time = time.time()
     logging.info(f"Audio data converted to numpy array in {end_time - start_time} seconds.")
     return audio_np
-    # logging.info("Converting audio data to numpy array...")
-    # start_time = time.time()
-    # try:
-    #     audio = VideoFileClip(audio_path).audio
-    #     audio_np = audio.to_soundarray(fps=16000, nbytes=2)
-    # except Exception as e:
-    #     logging.error(f"FFmpeg error: {e}")
-    #     return None
-    # audio_np = np.frombuffer(audio_np, np.int16).astype(np.float32)
-    # audio_np = audio_np / 32768.0  # Нормализация
-    # audio_np = audio_np.flatten()
-
-    # try:
-    #     audio = VideoFileClip(audio_path).audio
-    #     audio_np = audio.to_soundarray(fps=16000, nbytes=2)
-    # except Exception as e:
-    #     logging.error(f"Error while converting audio: {e}")
-    #     return None
-    #
-    # audio_np = audio_np.flatten()
-    # audio_np = audio_np / 32768.0  # Нормализация
-
-    # end_time =time.time()
-    # logging.info(f"Audio data converted to numpy array in {end_time - start_time} seconds.")
-    # return audio_np
 
 
 # Функция для загрузки аудио файла
@@ -134,10 +90,10 @@ def load_audio_file(audio_path):
 
 
 # Функция для преобразования аудио в текст
-def audio_to_text(audio_np):
+def audio_to_text(audio_path):
     logging.info("Converting audio to text...")
     try:
-        result = model.transcribe(audio_np, language='ru')
+        result = model.transcribe(audio_path, language='ru')
     except Exception as e:
         logging.error(f"Whisper model error: {e}")
         return None
@@ -163,7 +119,7 @@ program_start_time = time.time()
 
 
 async def process_videos(videos):
-    # Обработка первых 10 записей
+    # Обработка первых 20 записей
     for i, (video_id, video_info) in enumerate(list(videos.items())[:20]):
         logging.info(f"Processing {i + 1}: {video_id}")
         video_url = video_info['url']
@@ -178,19 +134,7 @@ async def process_videos(videos):
 
             if audio_path is None:
                 none_transcriptions[video_id] = {
-                    'processing_time': 0,
-                    'video_duration': video_duration,
-                    'channels_count': 0,
-                    'transcription': None
-                }
-                continue
-
-            # Преобразование аудио в массив NumPy
-            audio_data = load_audio_file(audio_path)
-            audio_np = audio_to_numpy(audio_data)
-
-            if audio_np is None:
-                none_transcriptions[video_id] = {
+                    'url': video_url,
                     'processing_time': 0,
                     'video_duration': video_duration,
                     'channels_count': 0,
@@ -199,7 +143,7 @@ async def process_videos(videos):
                 continue
 
             # Преобразование аудио в текст
-            transcription = audio_to_text(audio_np)
+            transcription = audio_to_text(audio_path)
 
             if transcription is None:
                 transcriptions_fail[video_id] = {
@@ -216,6 +160,7 @@ async def process_videos(videos):
             logging.info(f"Transcription: {transcription}")
 
             transcriptions[video_id] = {
+                'url': video_url,
                 'processing_time': processing_time,
                 'video_duration': video_duration,
                 'channels_count': 1,
@@ -233,10 +178,6 @@ async def process_videos(videos):
 
     return transcriptions, none_transcriptions, transcriptions_fail
 
-    # finally:
-    #     # Удаление временных файлов
-    #     if os.path.exists(audio_path):
-    #         os.remove(audio_path)
 
 asyncio.run(process_videos(videos))
 
@@ -275,8 +216,13 @@ append_to_json_file('whisper_transcriptions/transcriptions_fail.json', transcrip
 # with open('whisper_transcriptions/transcriptions_fail.json', 'w', encoding='utf-8') as f:
 #     json.dump(transcriptions_fail, f, ensure_ascii=False, indent=4)
 
-# Очистка временных файлов
-# os.remove('temp/audio.ogg')
+
+# Удаление временных файлов
+if os.path.exists(video_path):
+    os.remove(video_path)
+if os.path.exists(audio_path):
+    os.remove(audio_path)
+
 
 program_end_time = time.time()
 program_execution_time = program_end_time - program_start_time
