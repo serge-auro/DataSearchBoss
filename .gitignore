@@ -162,3 +162,4 @@ cython_debug/
 .idea/
 test_thumbnails
 text_from_frames.txt
+add_keywords.py
