@@ -1,7 +1,6 @@
 import os
 import json
 import time
-import logging
 import requests
 import ffmpeg
 import numpy as np
@@ -12,7 +11,6 @@ from pydantic import BaseModel
 from fastapi import FastAPI, HTTPException
 import asyncio
 import logging
-from pydub import AudioSegment
 
 # Настройка логирования
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -115,7 +113,7 @@ program_start_time = time.time()
 
 async def process_videos(videos):
     # Обработка первых 1500 записей
-    for i, (video_id, video_info) in enumerate(list(videos.items())[:1500]):
+    for i, (video_id, video_info) in enumerate(list(videos.items())[1600:1620]):
         if video_id in transcriptions or video_id in none_transcriptions or video_id in transcriptions_fail:
             logging.info(f"Skipping already processed video ID: {video_id}")
             continue
@@ -184,41 +182,6 @@ async def process_videos(videos):
 
 
 asyncio.run(process_videos(videos))
-
-
-# def append_to_json_file(file_path, new_data):
-#     try:
-#         with open(file_path, 'r', encoding='utf-8') as file:
-#             existing_data = json.load(file)
-#     except FileNotFoundError:
-#         existing_data = {}
-#
-#     if not isinstance(existing_data, dict):
-#         raise ValueError("Existing data should be a dictionary.")
-#
-#     if not isinstance(new_data, dict):
-#         raise ValueError("New data should be a dictionary.")
-#
-#     existing_data.update(new_data)
-#
-#     with open(file_path, 'w', encoding='utf-8') as file:
-#         json.dump(existing_data, file, ensure_ascii=False, indent=4)
-#
-#
-# # Использование функции для сохранения данных
-# append_to_json_file('whisper_transcriptions/transcriptions_1.json', transcriptions)
-# append_to_json_file('whisper_transcriptions/none_transcriptions_1.json', none_transcriptions)
-# append_to_json_file('whisper_transcriptions/transcriptions_fail.json', transcriptions_fail)
-
-# Сохранение результатов в файлы
-# with open('whisper_transcriptions/transcriptions_1.json', 'w', encoding='utf-8') as f:
-#     json.dump(transcriptions, f, ensure_ascii=False, indent=4)
-#
-# with open('whisper_transcriptions/none_transcriptions_1.json', 'w', encoding='utf-8') as f:
-#     json.dump(none_transcriptions, f, ensure_ascii=False, indent=4)
-#
-# with open('whisper_transcriptions/transcriptions_fail.json', 'w', encoding='utf-8') as f:
-#     json.dump(transcriptions_fail, f, ensure_ascii=False, indent=4)
 
 
 # Удаление временных файлов
