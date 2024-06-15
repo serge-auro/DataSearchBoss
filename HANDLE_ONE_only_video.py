@@ -44,7 +44,7 @@ def log_unprocessed_video(video_id):
         file.write(f"{video_id}\n")
 
 def process_only_video_data(video_id):
-    url = "http://127.0.0.1:8000/encode"
+    url = "http://176.109.106.184:8000/encode"
     json_file_path = 'video_description/all_videos.json'
     frames_dir = "frames"
 
@@ -124,7 +124,11 @@ def main_handle_videos():
         video_id = video_ids[i]
         if video_id in vectors:
             continue  # Пропустить уже обработанные видео
-    
+
+    for i in range(start_index, len(video_ids)):
+        video_id = video_ids[i]
+        if video_id in vectors:
+            continue  # Пропустить уже обработанные видео
 
         start_time = time.time()
 
