@@ -62,10 +62,15 @@ def create_thumbnails_for_video_message(
     for i, (scene_start, _) in enumerate(selected_scenes):
         output_path = os.path.join(output_folder, f'key_frame_{video_id}_{i:03d}.jpg')
         if save_frame(video_path, scene_start.get_seconds(), output_path, duration):
-            with open(output_path, 'rb') as frame_data:
-                frames.append(VideoFrame(video_url=video_url, file=BytesIO(frame_data.read())))
-            saved_frames_count += 1
-            print(f"Сохранен кадр {i + 1}/{len(selected_scenes)}")
+            try:
+                with open(output_path, 'rb') as frame_data:
+                    frames.append(VideoFrame(video_url=video_url, file=BytesIO(frame_data.read())))
+                saved_frames_count += 1
+                print(f"Сохранен кадр {i + 1}/{len(selected_scenes)}")
+            except FileNotFoundError:
+                print(f"Не удалось найти файл: {output_path}")
+            except Exception as e:
+                print(f"Ошибка при сохранении кадра {i + 1}: {e}")
         else:
             print(f"Не удалось сохранить кадр {i + 1}/{len(selected_scenes)}")
 
