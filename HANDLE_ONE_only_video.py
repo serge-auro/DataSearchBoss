@@ -4,8 +4,6 @@ import os
 import logging
 import requests
 
-
-
 from download_video_by_url_and_make_frames import create_thumbnails_for_video_message, get_video_duration
 from upload_only_VIDEO_vector import process_only_video_data, delete_frames
 
@@ -15,6 +13,14 @@ logging.basicConfig(filename='processing.log', level=logging.INFO, format='%(asc
 vectors_file_path = 'new_normalized_vectors_separated_frames_4000-5000.json'
 statistics_file_path = 'new_normalized_statistics_separated_frames.json'
 unprocessed_videos_log = 'unprocessed_videos.log'
+
+
+def ensure_file_exists(file_path):
+    if not os.path.exists(file_path):
+        with open(file_path, 'w', encoding='utf-8') as file:
+            json.dump({}, file, indent=4)
+        logging.info(f"Created missing file: {file_path}")
+
 
 def load_json(file_path):
     if not os.path.exists(file_path):
@@ -30,18 +36,22 @@ def load_json(file_path):
             logging.error(f"Error loading JSON file {file_path}: {str(e)}")
             return {}
 
+
 def save_json(data, file_path):
     with open(file_path, 'w', encoding='utf-8') as file:
         json.dump(data, file, indent=4)
+
 
 def load_last_state():
     vectors = load_json(vectors_file_path)
     statistics = load_json(statistics_file_path)
     return vectors, statistics
 
+
 def log_unprocessed_video(video_id):
     with open(unprocessed_videos_log, 'a', encoding='utf-8') as file:
         file.write(f"{video_id}\n")
+
 
 def process_only_video_data(video_id):
     url = "http://176.109.106.184:8000/encode"
@@ -92,7 +102,11 @@ def process_only_video_data(video_id):
 
     return result, image_vectors, text_vector
 
+
 def main_handle_videos():
+    ensure_file_exists(vectors_file_path)  # Проверка и создание файла, если он отсутствует
+    ensure_file_exists(statistics_file_path)  # Проверка и создание файла, если он отсутствует
+
     vectors, statistics = load_last_state()
     json_file_path = 'video_description/all_videos.json'
 
@@ -133,7 +147,9 @@ def main_handle_videos():
         start_time = time.time()
 
         output_folder = "frames"
-        frames, video_duration, frames_count = create_thumbnails_for_video_message(video_id, all_videos[video_id]['url'], output_folder)
+        frames, video_duration, frames_count = create_thumbnails_for_video_message(video_id,
+                                                                                   all_videos[video_id]['url'],
+                                                                                   output_folder)
 
         success, image_vectors, text_vector = process_only_video_data(video_id)
         if success and image_vectors is not None:
@@ -171,6 +187,7 @@ def main_handle_videos():
         # Сохранение данных после обработки каждого видео
         save_json(vectors, vectors_file_path)
         save_json(statistics, statistics_file_path)
+
 
 if __name__ == "__main__":
     try:
