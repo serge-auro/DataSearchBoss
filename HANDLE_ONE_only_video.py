@@ -1,137 +1,181 @@
+import json
+import time
 import os
-import subprocess
-import tempfile
-from io import BytesIO
-from dataclasses import dataclass
+import logging
 import requests
-from scenedetect import detect, ContentDetector, FrameTimecode
-import math
 
-@dataclass
-class VideoFrame:
-    video_url: str
-    file: BytesIO
 
-def create_thumbnails_for_video_message(
-        video_id: str,
-        video_url: str,
-        output_folder: str,
-        statistics_file_path: str,  # Добавлен путь к файлу статистики
-        frame_change_threshold: float = 7.5,
-        num_of_thumbnails: int = 15
-) -> tuple[list[VideoFrame], float, int]:
-    frames: list[VideoFrame] = []
-    video_data = BytesIO(requests.get(video_url).content)
-    print(video_data)
 
-    with tempfile.NamedTemporaryFile(delete=False, prefix=f"{video_id}_", suffix='.mp4') as tmp_file:
-        tmp_file.write(video_data.getvalue())
-        video_path = tmp_file.name
-        print(video_path)
+from download_video_by_url_and_make_frames import create_thumbnails_for_video_message, get_video_duration
+from upload_only_VIDEO_vector import process_only_video_data, delete_frames
 
-    scenes = detect(video_path, ContentDetector(threshold=frame_change_threshold))
-    print(scenes)
-    print(len(scenes))
-    duration = get_video_duration(video_path)
-    print(duration)
+# Настройка логирования
+logging.basicConfig(filename='processing.log', level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
-    selected_scenes = scenes
-    # Если количество обнаруженных сцен больше, чем количество требуемых миниатюр
-    if len(scenes) > num_of_thumbnails:
-        # Разделяем сцены на начальные, средние и конечные на основе продолжительности видео
-        start_scenes, middle_scenes, end_scenes = split_scenes(scenes, duration)
-        # Выбираем сцены для миниатюр
-        selected_scenes = choose_scenes(start_scenes, end_scenes, middle_scenes, num_of_thumbnails)
+vectors_file_path = 'new_normalized_vectors_separated_frames_4000-5000.json'
+statistics_file_path = 'new_normalized_statistics_separated_frames.json'
+unprocessed_videos_log = 'unprocessed_videos.log'
 
-    # Добавление первого и последнего кадра, если сцены не были обнаружены
-    if not scenes:
-        print("Не обнаружено изменений в сценах")
-        video_fps = get_video_fps(video_path)
-        first_scene = FrameTimecode(timecode='00:00:00', fps=video_fps)
-        scenes.append((first_scene, first_scene))
-        last_timecode = FrameTimecode(timecode=f'{max(0, int(duration - 0.1)):.1f}', fps=video_fps)
+def load_json(file_path):
+    if not os.path.exists(file_path):
+        return {}
+    with open(file_path, 'r', encoding='utf-8') as file:
+        try:
+            content = file.read().strip()
+            if content:
+                return json.loads(content)
+            else:
+                return {}
+        except json.JSONDecodeError as e:
+            logging.error(f"Error loading JSON file {file_path}: {str(e)}")
+            return {}
 
-        scenes.append((last_timecode, last_timecode))
-        print(scenes)
-        selected_scenes = scenes
+def save_json(data, file_path):
+    with open(file_path, 'w', encoding='utf-8') as file:
+        json.dump(data, file, indent=4)
 
-    os.makedirs(output_folder, exist_ok=True)
-    saved_frames_count = 0  # Подсчет успешно сохраненных кадров
+def load_last_state():
+    vectors = load_json(vectors_file_path)
+    statistics = load_json(statistics_file_path)
+    return vectors, statistics
 
-    # Обработка и сохранение каждого кадра из selected_scenes
-    for i, (scene_start, _) in enumerate(selected_scenes):
-        output_path = os.path.join(output_folder, f'key_frame_{video_id}_{i:03d}.jpg')
-        if save_frame(video_path, scene_start.get_seconds(), output_path, duration):
-            try:
-                with open(output_path, 'rb') as frame_data:
-                    frames.append(VideoFrame(video_url=video_url, file=BytesIO(frame_data.read())))
-                saved_frames_count += 1
-                print(f"Сохранен кадр {i + 1}/{len(selected_scenes)}")
-            except FileNotFoundError:
-                print(f"Не удалось найти файл: {output_path}")
-            except Exception as e:
-                print(f"Ошибка при сохранении кадра {i + 1}: {e}")
+def log_unprocessed_video(video_id):
+    with open(unprocessed_videos_log, 'a', encoding='utf-8') as file:
+        file.write(f"{video_id}\n")
+
+def process_only_video_data(video_id):
+    url = "http://176.109.106.184:8000/encode"
+    json_file_path = 'video_description/all_videos.json'
+    frames_dir = "frames"
+
+    with open(json_file_path, 'r', encoding='utf-8') as file:
+        all_videos = json.load(file)
+
+    video_url = all_videos.get(video_id, {}).get('url', None)
+    text = None
+
+    files = []
+    file_handles = []
+    try:
+        for filename in os.listdir(frames_dir):
+            if filename.startswith(f'key_frame_{video_id}_') and filename.endswith(('.jpg', '.jpeg', '.png')):
+                file_path = os.path.join(frames_dir, filename)
+                file_handle = open(file_path, 'rb')
+                files.append(('images', (filename, file_handle, 'image/jpeg')))
+                file_handles.append(file_handle)
+        data = {'texts': [text]}
+
+        response = requests.post(url, files=files, data=data)
+        if response.status_code == 200:
+            print("сейчас получила ответ")
+
+            image_vectors = response.json().get('image_features', None)
+            text_vector = response.json().get('text_features', None)
+            result = True
         else:
-            print(f"Не удалось сохранить кадр {i + 1}/{len(selected_scenes)}")
+            log_message = f"Failed to get a proper response. Status code: {response.status_code}\nResponse: {response.text}"
+            print(log_message)
+            logging.error(log_message)
+            image_vectors = None
+            text_vector = None
+            result = False
+    except Exception as e:
+        log_message = f"Error during data processing: {str(e)}"
+        print(log_message)
+        logging.error(log_message)
+        image_vectors = None
+        text_vector = None
+        result = False
+    finally:
+        for file_handle in file_handles:
+            file_handle.close()
 
-    os.unlink(video_path)  # Удаление временного файла
+    return result, image_vectors, text_vector
 
-    # Проверка существования файла статистики и его создание при необходимости
-    if not os.path.exists(statistics_file_path):
-        with open(statistics_file_path, 'w') as stats_file:
-            stats_file.write('')  # Создание пустого файла статистики
-        print(f"Создан файл статистики: {statistics_file_path}")
+def main_handle_videos():
+    vectors, statistics = load_last_state()
+    json_file_path = 'video_description/all_videos.json'
 
-    return frames, duration, saved_frames_count
+    with open(json_file_path, 'r', encoding='utf-8') as file:
+        try:
+            content = file.read().strip()
+            if content:
+                all_videos = json.loads(content)
+            else:
+                logging.error(f"JSON file {json_file_path} is empty.")
+                return
+        except json.JSONDecodeError as e:
+            logging.error(f"Error loading JSON file {json_file_path}: {str(e)}")
+            return
 
-def save_frame(video_path: str, timecode: float, output_path: str, duration: float) -> bool:
-    # Уменьшаем время на 100 миллисекунд, чтобы избежать черного кадра на конце
-    safe_duration = duration - 0.1
-    if timecode < safe_duration:
-        subprocess.call([
-            'ffmpeg', '-y', '-i', video_path, '-ss', str(timecode),
-            '-vframes', '1', '-update', '1', output_path
-        ])
-        return True
-    return False
+    last_processed_id = max(vectors.keys(), default=None)
+    start_index = 0
 
-def get_video_duration(video_path: str) -> float:
-    result = subprocess.run(
-        ['ffprobe', '-v', 'error', '-show_entries', 'format=duration', '-of', 'default=noprint_wrappers=1:nokey=1', video_path],
-        stdout=subprocess.PIPE,
-        stderr=subprocess.STDOUT
-    )
-    return float(result.stdout)
+    if last_processed_id:
+        video_ids = list(all_videos.keys())
+        start_index = video_ids.index(last_processed_id) + 1
+    else:
+        video_ids = list(all_videos.keys())[4000:5000]
 
-def get_video_fps(video_path: str) -> float:
-    result = subprocess.run(
-        ['ffprobe', '-v', 'error', '-select_streams', 'v:0', '-show_entries', 'stream=r_frame_rate', '-of', 'default=noprint_wrappers=1:nokey=1', video_path],
-        stdout=subprocess.PIPE,
-        stderr=subprocess.STDOUT
-    )
-    fps = result.stdout.decode().strip().split('/')
-    return float(fps[0]) / float(fps[1]) if len(fps) == 2 else float(fps[0])
+    for i in range(start_index, len(video_ids)):
+        if i >= 5000:  # Проверка на количество обработанных записей
+            break
 
-def split_scenes(scenes, duration):
-    start_scenes = [scene for scene in scenes if scene[0].get_seconds() <= duration * 0.1]
-    middle_scenes = [scene for scene in scenes if duration * 0.1 < scene[0].get_seconds() < duration * 0.9]
-    end_scenes = [scene for scene in scenes if scene[0].get_seconds() >= duration * 0.9]
-    return start_scenes, middle_scenes, end_scenes
+        video_id = video_ids[i]
+        if video_id in vectors:
+            continue  # Пропустить уже обработанные видео
 
-def choose_scenes(start_scenes, end_scenes, middle_scenes, num_of_thumbnails):
-    num_start_scenes = min(len(start_scenes), 2)
-    num_end_scenes = min(len(end_scenes), 2)
-    selected_scenes = start_scenes[:num_start_scenes] + end_scenes[:num_end_scenes]
-    remaining_scenes = num_of_thumbnails - len(selected_scenes)
-    if remaining_scenes > 0 and middle_scenes:
-        middle_count = min(len(middle_scenes), remaining_scenes)
-        step = len(middle_scenes) // middle_count
-        selected_scenes.extend(middle_scenes[i] for i in range(0, len(middle_scenes), step)[:middle_count])
-    return selected_scenes
+    for i in range(start_index, len(video_ids)):
+        video_id = video_ids[i]
+        if video_id in vectors:
+            continue  # Пропустить уже обработанные видео
 
-# Пример вызова функции
-#video_id = '2252e44042798abe3c2fe7e64392'
-#video_url = 'https://cdn-st.rutubelist.ru/media/e7/b5/2252e44042798abe3c2fe7e64392/fhd.mp4'
-#output_folder = 'frames'
-#statistics_file_path = 'statistics.txt'
-#print(create_thumbnails_for_video_message(video_id, video_url, output_folder, statistics_file_path))
+        start_time = time.time()
+
+        output_folder = "frames"
+        frames, video_duration, frames_count = create_thumbnails_for_video_message(video_id, all_videos[video_id]['url'], output_folder)
+
+        success, image_vectors, text_vector = process_only_video_data(video_id)
+        if success and image_vectors is not None:
+            vectors[video_id] = {
+                "url": all_videos[video_id]['url'],
+                "vectors": image_vectors  # Список тензоров (списков) для каждого изображения
+            }
+            delete_frames(output_folder, video_id)
+            log_message = f"Successfully processed data for {video_id} and frames deleted."
+            print(log_message)
+            logging.info(log_message)
+        else:
+            log_message = f"Data for {video_id} was not processed, frames remain in the folder."
+            print(log_message)
+            logging.warning(log_message)
+            log_unprocessed_video(video_id)
+
+        end_time = time.time()
+        total_time = end_time - start_time
+
+        statistics[video_id] = {
+            "processing_time": total_time,
+            "video_duration": video_duration,
+            "frames_count": frames_count
+        }
+
+        log_message = f"Total execution time for {video_id}: {total_time} seconds"
+        print(log_message)
+        logging.info(log_message)
+
+        log_message = f"Video duration for {video_id}: {video_duration} seconds, frames count: {frames_count}"
+        print(log_message)
+        logging.info(log_message)
+
+        # Сохранение данных после обработки каждого видео
+        save_json(vectors, vectors_file_path)
+        save_json(statistics, statistics_file_path)
+
+if __name__ == "__main__":
+    try:
+        main_handle_videos()
+    except Exception as e:
+        log_message = f"An error occurred: {str(e)}"
+        print(log_message)
+        logging.error(log_message)

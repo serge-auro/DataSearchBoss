@@ -16,6 +16,7 @@ def create_thumbnails_for_video_message(
         video_id: str,
         video_url: str,
         output_folder: str,
+        statistics_file_path: str,  # Добавлен путь к файлу статистики
         frame_change_threshold: float = 7.5,
         num_of_thumbnails: int = 15
 ) -> tuple[list[VideoFrame], float, int]:
@@ -41,7 +42,6 @@ def create_thumbnails_for_video_message(
         start_scenes, middle_scenes, end_scenes = split_scenes(scenes, duration)
         # Выбираем сцены для миниатюр
         selected_scenes = choose_scenes(start_scenes, end_scenes, middle_scenes, num_of_thumbnails)
-
 
     # Добавление первого и последнего кадра, если сцены не были обнаружены
     if not scenes:
@@ -75,6 +75,13 @@ def create_thumbnails_for_video_message(
             print(f"Не удалось сохранить кадр {i + 1}/{len(selected_scenes)}")
 
     os.unlink(video_path)  # Удаление временного файла
+
+    # Проверка существования файла статистики и его создание при необходимости
+    if not os.path.exists(statistics_file_path):
+        with open(statistics_file_path, 'w') as stats_file:
+            stats_file.write('')  # Создание пустого файла статистики
+        print(f"Создан файл статистики: {statistics_file_path}")
+
     return frames, duration, saved_frames_count
 
 def save_frame(video_path: str, timecode: float, output_path: str, duration: float) -> bool:
@@ -87,8 +94,6 @@ def save_frame(video_path: str, timecode: float, output_path: str, duration: flo
         ])
         return True
     return False
-
-
 
 def get_video_duration(video_path: str) -> float:
     result = subprocess.run(
@@ -124,10 +129,9 @@ def choose_scenes(start_scenes, end_scenes, middle_scenes, num_of_thumbnails):
         selected_scenes.extend(middle_scenes[i] for i in range(0, len(middle_scenes), step)[:middle_count])
     return selected_scenes
 
-
-
 # Пример вызова функции
-video_id = '2252e44042798abe3c2fe7e64392'
-video_url = 'https://cdn-st.rutubelist.ru/media/e7/b5/2252e44042798abe3c2fe7e64392/fhd.mp4'
-output_folder = 'frames'
-print(create_thumbnails_for_video_message(video_id, video_url, output_folder))
+#video_id = '2252e44042798abe3c2fe7e64392'
+#video_url = 'https://cdn-st.rutubelist.ru/media/e7/b5/2252e44042798abe3c2fe7e64392/fhd.mp4'
+#output_folder = 'frames'
+#statistics_file_path = 'statistics.txt'
+#print(create_thumbnails_for_video_message(video_id, video_url, output_folder, statistics_file_path))
