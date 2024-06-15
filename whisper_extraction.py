@@ -23,8 +23,10 @@ app = FastAPI()
 class AudioEncodeRequest(BaseModel):
     video_url: str
 
+
 video_path = "temp_video.mp4"
 audio_path = "temp_audio.wav"
+
 
 @app.post("/encode_audio")
 async def encode_audio(request: AudioEncodeRequest):
@@ -60,35 +62,6 @@ async def encode_audio(request: AudioEncodeRequest):
     return {"video_duration": video_duration, "audio_path": audio_path}
 
 
-# Функция для преобразования аудио в массив NumPy
-def audio_to_numpy(audio_path):
-    logging.info("Converting audio data to numpy array...")
-    start_time = time.time()
-    try:
-        # Load audio file with pydub
-        audio = AudioSegment.from_file(audio_path)
-        # Convert audio samples to numpy array
-        audio_np = np.array(audio.get_array_of_samples())
-        # Normalize audio data
-        audio_np = audio_np / 32768.0
-    except Exception as e:
-        logging.error(f"Error while converting audio: {e}")
-        return None
-    end_time = time.time()
-    logging.info(f"Audio data converted to numpy array in {end_time - start_time} seconds.")
-    return audio_np
-
-
-# Функция для загрузки аудио файла
-def load_audio_file(audio_path):
-    try:
-        with open(audio_path, 'rb') as f:
-            return f.read()
-    except Exception as e:
-        logging.error(f"Error loading audio file: {e}")
-        return None
-
-
 # Функция для преобразования аудио в текст
 def audio_to_text(audio_path):
     logging.info("Converting audio to text...")
@@ -111,16 +84,42 @@ with open('video_description/all_videos.json', 'r', encoding='utf-8') as f:
 os.makedirs('whisper_transcriptions', exist_ok=True)
 
 # Инициализация файлов для записи результатов
-transcriptions = {}
-none_transcriptions = {}
-transcriptions_fail = {}
+# transcriptions = {}
+# none_transcriptions = {}
+# transcriptions_fail = {}
+
+
+# Функция для загрузки состояния из файла
+def load_state(file_path):
+    try:
+        with open(file_path, 'r', encoding='utf-8') as file:
+            return json.load(file)
+    except FileNotFoundError:
+        return {}
+
+
+# Загрузка предыдущего состояния
+transcriptions = load_state('whisper_transcriptions/transcriptions_1.json')
+none_transcriptions = load_state('whisper_transcriptions/none_transcriptions_1.json')
+transcriptions_fail = load_state('whisper_transcriptions/transcriptions_fail.json')
+
+
+# Функция для сохранения состояния в файл
+def save_state(file_path, data):
+    with open(file_path, 'w', encoding='utf-8') as file:
+        json.dump(data, file, ensure_ascii=False, indent=4)
+
 
 program_start_time = time.time()
 
 
 async def process_videos(videos):
-    # Обработка первых 20 записей
-    for i, (video_id, video_info) in enumerate(list(videos.items())[:20]):
+    # Обработка первых 1500 записей
+    for i, (video_id, video_info) in enumerate(list(videos.items())[:1500]):
+        if video_id in transcriptions or video_id in none_transcriptions or video_id in transcriptions_fail:
+            logging.info(f"Skipping already processed video ID: {video_id}")
+            continue
+
         logging.info(f"Processing {i + 1}: {video_id}")
         video_url = video_info['url']
 
@@ -140,6 +139,7 @@ async def process_videos(videos):
                     'channels_count': 0,
                     'transcription': None
                 }
+                save_state('whisper_transcriptions/none_transcriptions_1.json', none_transcriptions)
                 continue
 
             # Преобразование аудио в текст
@@ -150,13 +150,15 @@ async def process_videos(videos):
                     'url': video_url,
                     'error': 'Transcription failed'
                 }
+                save_state('whisper_transcriptions/transcriptions_fail.json', transcriptions_fail)
                 continue
 
             end_time = time.time()
             processing_time = end_time - start_time
 
             logging.info(
-                f"Video ID: {video_id}, Duration: {video_duration}s, Channels: 1, Processing Time: {processing_time}s")
+                f"Video ID: {video_id}, Video URL: {video_url}, Duration: {video_duration}s, "
+                f"Channels: 1, Processing Time: {processing_time}s")
             logging.info(f"Transcription: {transcription}")
 
             transcriptions[video_id] = {
@@ -166,6 +168,7 @@ async def process_videos(videos):
                 'channels_count': 1,
                 'transcription': transcription
             }
+            save_state('whisper_transcriptions/transcriptions_1.json', transcriptions)
 
         except Exception as e:
             error_name = e.__class__.__name__
@@ -175,6 +178,7 @@ async def process_videos(videos):
                 'url': video_url,
                 'error': f"{error_name}: {error_description}"
             }
+            save_state('whisper_transcriptions/transcriptions_fail.json', transcriptions_fail)
 
     return transcriptions, none_transcriptions, transcriptions_fail
 
@@ -182,29 +186,29 @@ async def process_videos(videos):
 asyncio.run(process_videos(videos))
 
 
-def append_to_json_file(file_path, new_data):
-    try:
-        with open(file_path, 'r', encoding='utf-8') as file:
-            existing_data = json.load(file)
-    except FileNotFoundError:
-        existing_data = {}
-
-    if not isinstance(existing_data, dict):
-        raise ValueError("Existing data should be a dictionary.")
-
-    if not isinstance(new_data, dict):
-        raise ValueError("New data should be a dictionary.")
-
-    existing_data.update(new_data)
-
-    with open(file_path, 'w', encoding='utf-8') as file:
-        json.dump(existing_data, file, ensure_ascii=False, indent=4)
-
-
-# Использование функции для сохранения данных
-append_to_json_file('whisper_transcriptions/transcriptions_1.json', transcriptions)
-append_to_json_file('whisper_transcriptions/none_transcriptions_1.json', none_transcriptions)
-append_to_json_file('whisper_transcriptions/transcriptions_fail.json', transcriptions_fail)
+# def append_to_json_file(file_path, new_data):
+#     try:
+#         with open(file_path, 'r', encoding='utf-8') as file:
+#             existing_data = json.load(file)
+#     except FileNotFoundError:
+#         existing_data = {}
+#
+#     if not isinstance(existing_data, dict):
+#         raise ValueError("Existing data should be a dictionary.")
+#
+#     if not isinstance(new_data, dict):
+#         raise ValueError("New data should be a dictionary.")
+#
+#     existing_data.update(new_data)
+#
+#     with open(file_path, 'w', encoding='utf-8') as file:
+#         json.dump(existing_data, file, ensure_ascii=False, indent=4)
+#
+#
+# # Использование функции для сохранения данных
+# append_to_json_file('whisper_transcriptions/transcriptions_1.json', transcriptions)
+# append_to_json_file('whisper_transcriptions/none_transcriptions_1.json', none_transcriptions)
+# append_to_json_file('whisper_transcriptions/transcriptions_fail.json', transcriptions_fail)
 
 # Сохранение результатов в файлы
 # with open('whisper_transcriptions/transcriptions_1.json', 'w', encoding='utf-8') as f:
