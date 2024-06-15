@@ -1,0 +1,26 @@
+{
+    "af170bab47be83d7f9db4a485a21": {
+        "url": "https://cdn-st.rutubelist.ru/media/92/bf/af170bab47be83d7f9db4a485a21/fhd.mp4",
+        "error": "HTTPException: 500: Error processing video"
+    },
+    "0b43fc2d48f8b1a9f94715bfb0ce": {
+        "url": "https://cdn-st.rutubelist.ru/media/2a/8a/0b43fc2d48f8b1a9f94715bfb0ce/fhd.mp4",
+        "error": "HTTPException: 500: Error processing video"
+    },
+    "ba6554644374a49bf5ade0d90426": {
+        "url": "https://cdn-st.rutubelist.ru/media/f8/e2/ba6554644374a49bf5ade0d90426/fhd.mp4",
+        "error": "HTTPException: 500: Error processing video"
+    },
+    "f6554bbf47baae0a1b2eae3c0585": {
+        "url": "https://cdn-st.rutubelist.ru/media/1b/4a/f6554bbf47baae0a1b2eae3c0585/fhd.mp4",
+        "error": "HTTPException: 500: Error processing video"
+    },
+    "7b5e9be34adca7be890aaf9054e2": {
+        "url": "https://cdn-st.rutubelist.ru/media/2b/f2/7b5e9be34adca7be890aaf9054e2/fhd.mp4",
+        "error": "HTTPException: 500: Error processing video"
+    },
+    "0470b7e14394bec54cad932f9b40": {
+        "url": "https://cdn-st.rutubelist.ru/media/23/12/0470b7e14394bec54cad932f9b40/fhd.mp4",
+        "error": "HTTPException: 500: Error processing video"
+    }
+}
