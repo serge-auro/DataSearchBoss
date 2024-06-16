@@ -128,7 +128,7 @@ except json.JSONDecodeError as e:
     raise
 
 # Ограничение количества видео для тестирования (обрабатываем только первые 50 видео)
-all_videos = dict(list(all_videos.items())[:10])
+all_videos = dict(list(all_videos.items())[1000:2000])
 
 subtitles_results = {}
 none_subtitles_results = {}
