@@ -4,7 +4,7 @@ import logging
 import numpy as np
 from pymongo import MongoClient
 
-from SERVER_translation import translate_text
+from translation import translate_text
 from upload_search_request_to_CLIP import process_search_request
 from faiss_module import FaissIndex  # Ваш класс FaissIndex
 

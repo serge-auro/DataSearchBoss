@@ -6,12 +6,12 @@ import requests
 import spacy
 import whisper
 
-from SERVER_subtitles_extraction_easyocr_extra import get_subtitles
-from SERVER_translation import translate_text
-from SERVER_download_video_by_url_and_make_frames import create_thumbnails_for_video_message, get_video_duration
-from SERVER_whisper_extraction import encode_and_transcribe
+from subtitles_extraction_easyocr_extra import get_subtitles
+from translation import translate_text
+from download_video_by_url_and_make_frames import create_thumbnails_for_video_message, get_video_duration
+from whisper_extraction import encode_and_transcribe
 from upload_only_VIDEO_vector import process_only_video_data, delete_frames
-from SERVER_key_words_extraction import extract_keywords
+from key_words_extraction import extract_keywords
 from MongoDB import VideoIndex
 
 
@@ -24,8 +24,8 @@ whisper_model = whisper.load_model('small')
 video_index = VideoIndex(db_name="video_database", collection_name="videos")
 
 
-# Настройка журнала с именем 'SERVER_HANDLE1_logging'
-logger = logging.getLogger('SERVER_HANDLE1_logging')
+# Настройка журнала с именем 'HANDLE1_logging'
+logger = logging.getLogger('HANDLE1_logging')
 logger.setLevel(logging.INFO)
 handler = logging.StreamHandler()
 formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
