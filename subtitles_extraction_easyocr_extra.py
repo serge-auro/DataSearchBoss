@@ -16,9 +16,9 @@ subtitles_extraction_dir = 'subtitles_extraction'
 os.makedirs(subtitles_extraction_dir, exist_ok=True)
 
 # Имена файлов для результатов
-subtitles_json_file = os.path.join(subtitles_extraction_dir, 'subtitles_easyocr_Lisa.json')
-none_subtitles_json_file = os.path.join(subtitles_extraction_dir, 'none_subtitles_1.json')
-subtitles_fail_json_file = os.path.join(subtitles_extraction_dir, 'subtitles_fail.json')
+subtitles_json_file = os.path.join(subtitles_extraction_dir, 'subtitles_easyocr_Lisa_1000_2000.json')
+none_subtitles_json_file = os.path.join(subtitles_extraction_dir, 'none_subtitles_10002000.json')
+subtitles_fail_json_file = os.path.join(subtitles_extraction_dir, 'subtitles_fail_1000_2000.json')
 
 # Инициализация EasyOCR
 reader = easyocr.Reader(['ru', 'en'])
