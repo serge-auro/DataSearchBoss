@@ -84,13 +84,13 @@ else:
     index.save_index(index_file_path)
     logging.info("Created and saved new Faiss index.")
 
-def user_search_request():
+def user_search_request(word):
     client = MongoClient("mongodb://localhost:27017/")
     db = client[db_name]
     video_collection = db[collection_name]
 
     # Ввод слова или фразу для поиска
-    search_query = input("Введите слово или фразу для поиска: ")
+    search_query = word
     translated_query = None
     if search_query is not None:
         translated_query = translate_text(search_query)

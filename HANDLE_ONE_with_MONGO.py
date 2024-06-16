@@ -107,13 +107,13 @@ def process_only_video_data(video_id, all_texts):
 
     return result, image_vectors, text_vector
 
-def main_handle_videos():
+def main_handle_videos(video_name, description_name):
     vectors = {}
     statistics = {}
 
     # Ввод ссылки на видео и описания
-    video_url = input("Введите ссылку на видео: ")
-    description = input("Введите описание видео (Если описания нет, нажмите Enter): ")
+    video_url = video_name
+    description = description_name
 
     all_texts = []
     # Перевод описания в русский язык

@@ -1,4 +1,4 @@
-
+import os
 import logging
 import numpy as np
 from pymongo import MongoClient
@@ -10,13 +10,9 @@ logging.basicConfig(filename='processing.log', level=logging.DEBUG, format='%(as
 # Параметры базы данных
 db_name = 'video_database'
 collection_name = 'videos'
-index_mapping_collection_name = 'index_mapping'
 
 # Путь к файлу для записи и загрузки индекса
 index_file_path = 'combined_vectors.faiss'
-
-
-
 
 # Функция для загрузки векторов из MongoDB
 def load_vectors_from_db():
@@ -51,21 +47,27 @@ def load_vectors_from_db():
 
     return vectors, ids, types
 
-try:
-    vectors, ids, types = load_vectors_from_db()
-    logging.info("Successfully loaded vectors from MongoDB.")
-except Exception as e:
-    logging.error(f"Failed to load vectors from MongoDB: {str(e)}")
-    raise
+# Функция для создания или загрузки Faiss индекса
+def create_faiss_index():
+    try:
+        vectors, ids, types = load_vectors_from_db()
+        logging.info("Successfully loaded vectors from MongoDB.")
+    except Exception as e:
+        logging.error(f"Failed to load vectors from MongoDB: {str(e)}")
+        raise
 
-# Размерность векторов
-d = len(vectors[0])
-logging.info(f"Vector dimension: {d}")
+    # Размерность векторов
+    d = len(vectors[0])
+    logging.info(f"Vector dimension: {d}")
 
-# Создание или загрузка Faiss индекса
-index = FaissIndex(d, index_type='FlatL2')
+    # Создание или загрузка Faiss индекса
+    index = FaissIndex(d, index_type='FlatL2')
 
-# Добавление векторов и сохранение индекса
-index.add_vectors(np.vstack(vectors))
-index.save_index(index_file_path)
-logging.info("Created and saved new Faiss index.")
+
+    # Добавление векторов и сохранение индекса
+    index.add_vectors(np.vstack(vectors))
+    index.save_index(index_file_path)
+    logging.info("Created and saved new Faiss index.")
+
+if __name__ == "__main__":
+    create_faiss_index()
