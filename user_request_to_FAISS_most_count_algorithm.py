@@ -11,7 +11,7 @@ logging.basicConfig(filename='processing.log', level=logging.DEBUG, format='%(as
 
 # Путь к файлам для записи и загрузки индексов
 video_index_file_path = 'video_separated_frames_index.faiss'
-vectors_file_path = 'vectors_separated_frames_1.json'
+vectors_file_path = 'DONE_normalized_vectors_1.json'
 user_search_file_path = 'user_search.json'
 faiss_statistics_file_path = 'FAISS_statistics.json'
 all_videos_file_path = 'video_description/all_videos.json'
