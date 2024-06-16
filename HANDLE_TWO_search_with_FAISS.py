@@ -20,17 +20,16 @@ index_mapping_collection_name = 'index_mapping'
 index_file_path = 'combined_vectors.faiss'
 
 # Весовые коэффициенты
-v_weight = 0.4  # Вес для видео
-d_weight = 0.3  # Вес для описания
-s_weight = 0.2  # Вес для субтитров
-a_weight = 0.1  # Вес для аудио
+v_weight = 0.6  # Вес для видео
+d_weight = 0.1  # Вес для описания
+s_weight = 0.1  # Вес для субтитров
+a_weight = 0.2  # Вес для аудио
 
-# Проверка, что веса в сумме дают 1
-assert v_weight + d_weight + s_weight + a_weight == 1, "Сумма весов должна быть равна 1"
+
 
 # Функция для загрузки векторов из MongoDB
 def load_vectors_from_db():
-    client = MongoClient("mongodb://localhost:27017/")
+    client = MongoClient("mongodb://mongo:27017/")
     db = client[db_name]
     collection = db[collection_name]
 

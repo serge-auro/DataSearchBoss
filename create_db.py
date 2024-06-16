@@ -12,7 +12,7 @@ class VideoIndex:
         :param index_mapping_collection_name: Название коллекции для хранения связи индексов и идентификаторов видео.
         """
         try:
-            self.client = MongoClient("mongodb://localhost:27017/")
+            self.client = MongoClient("mongodb://mongo:27017/")
             self.db = self.client[db_name]
             self.collection = self.db[collection_name]
             self.index_mapping_collection = self.db[index_mapping_collection_name]

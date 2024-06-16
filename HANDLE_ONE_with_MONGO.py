@@ -12,7 +12,7 @@ from download_video_by_url_and_make_frames import create_thumbnails_for_video_me
 from whisper_extraction import encode_and_transcribe
 from upload_only_VIDEO_vector import process_only_video_data, delete_frames
 from key_words_extraction import extract_keywords
-from MongoDB import VideoIndex
+from create_db import VideoIndex
 
 
 # переменная для хранения модели spaCy
