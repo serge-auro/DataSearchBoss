@@ -66,7 +66,7 @@ def extract_video_id(url: str) -> str:
     return unique_id
 
 def process_only_video_data(video_id, all_texts):
-    url = "http://127.0.0.1:8000/encode"
+    url = "http://176.109.106.184:8000/encode"
     frames_dir = "frames"
 
     files = []
