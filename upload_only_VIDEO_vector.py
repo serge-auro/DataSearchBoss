@@ -4,7 +4,7 @@ import requests
 import logging
 
 def process_only_video_data(video_id):
-    url = "http://176.109.106.184:8000//encode"
+    url = "http://127.0.0.1:8000/encode"
     json_file_path = 'video_description/all_videos.json'
     frames_dir = "frames"
 
@@ -24,7 +24,7 @@ def process_only_video_data(video_id):
                 file_handle = open(file_path, 'rb')
                 files.append(('images', (filename, file_handle, 'image/jpeg')))
                 file_handles.append(file_handle)
-
+        print(files)
         data = {'texts': [text]}
 
         response = requests.post(url, files=files, data=data)
@@ -57,3 +57,5 @@ def delete_frames(folder, video_id):
     print(log_message)
     logging.info(log_message)
 
+# Вызов функции для обработки данных
+#print(process_only_video_data('ef285e0241139fc611318ed33071'))
