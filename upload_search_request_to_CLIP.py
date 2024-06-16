@@ -6,7 +6,7 @@ import logging
 logging.basicConfig(filename='search_processing.log', level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %(message)s')
 
 def process_search_request(query_text):
-    url = "http://127.0.0.1:8000/encode"
+    url = "http://176.109.106.184:8000/encode"
 
     if not query_text:
         log_message = "Empty query text provided."
