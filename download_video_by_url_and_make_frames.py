@@ -18,7 +18,7 @@ def create_thumbnails_for_video_message(
         output_folder: str,
         frame_change_threshold: float = 7.5,
         num_of_thumbnails: int = 15
-) -> tuple[list[VideoFrame], float, int]:
+) -> tuple[list[VideoFrame], float, int, str]:
     frames: list[VideoFrame] = []
     video_data = BytesIO(requests.get(video_url).content)
     print(video_data)
@@ -42,7 +42,6 @@ def create_thumbnails_for_video_message(
         # Выбираем сцены для миниатюр
         selected_scenes = choose_scenes(start_scenes, end_scenes, middle_scenes, num_of_thumbnails)
 
-
     # Добавление первого и последнего кадра, если сцены не были обнаружены
     if not scenes:
         print("Не обнаружено изменений в сценах")
@@ -62,20 +61,15 @@ def create_thumbnails_for_video_message(
     for i, (scene_start, _) in enumerate(selected_scenes):
         output_path = os.path.join(output_folder, f'key_frame_{video_id}_{i:03d}.jpg')
         if save_frame(video_path, scene_start.get_seconds(), output_path, duration):
-            try:
-                with open(output_path, 'rb') as frame_data:
-                    frames.append(VideoFrame(video_url=video_url, file=BytesIO(frame_data.read())))
-                saved_frames_count += 1
-                print(f"Сохранен кадр {i + 1}/{len(selected_scenes)}")
-            except FileNotFoundError:
-                print(f"Не удалось найти файл: {output_path}")
-            except Exception as e:
-                print(f"Ошибка при сохранении кадра {i + 1}: {e}")
+            with open(output_path, 'rb') as frame_data:
+                frames.append(VideoFrame(video_url=video_url, file=BytesIO(frame_data.read())))
+            saved_frames_count += 1
+            print(f"Сохранен кадр {i + 1}/{len(selected_scenes)}")
         else:
             print(f"Не удалось сохранить кадр {i + 1}/{len(selected_scenes)}")
 
-    os.unlink(video_path)  # Удаление временного файла
-    return frames, duration, saved_frames_count
+    # Возвращаем также путь к видеофайлу
+    return frames, duration, saved_frames_count, video_path
 
 def save_frame(video_path: str, timecode: float, output_path: str, duration: float) -> bool:
     # Уменьшаем время на 100 миллисекунд, чтобы избежать черного кадра на конце
@@ -87,8 +81,6 @@ def save_frame(video_path: str, timecode: float, output_path: str, duration: flo
         ])
         return True
     return False
-
-
 
 def get_video_duration(video_path: str) -> float:
     result = subprocess.run(
@@ -114,8 +106,8 @@ def split_scenes(scenes, duration):
     return start_scenes, middle_scenes, end_scenes
 
 def choose_scenes(start_scenes, end_scenes, middle_scenes, num_of_thumbnails):
-    num_start_scenes = min(len(start_scenes), 2)
-    num_end_scenes = min(len(end_scenes), 2)
+    num_start_scenes = min(len(start_scenes), 3)
+    num_end_scenes = min(len(end_scenes), 3)
     selected_scenes = start_scenes[:num_start_scenes] + end_scenes[:num_end_scenes]
     remaining_scenes = num_of_thumbnails - len(selected_scenes)
     if remaining_scenes > 0 and middle_scenes:
@@ -123,8 +115,6 @@ def choose_scenes(start_scenes, end_scenes, middle_scenes, num_of_thumbnails):
         step = len(middle_scenes) // middle_count
         selected_scenes.extend(middle_scenes[i] for i in range(0, len(middle_scenes), step)[:middle_count])
     return selected_scenes
-
-
 
 # Пример вызова функции
 #video_id = '2252e44042798abe3c2fe7e64392'
